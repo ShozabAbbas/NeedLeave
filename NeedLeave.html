@@ -1,0 +1,1278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NeedLeave</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root {
+    --bg: #0F1115;
+    --surface: #171A21;
+    --surface-2: #1E222B;
+    --surface-3: #262B36;
+    --border: #2A2F3A;
+    --border-soft: #21252F;
+    --text: #EDEDF0;
+    --text-dim: #9A9FAE;
+    --text-faint: #61667A;
+    --accent: #6C63FF;
+    --accent-dim: #4A4499;
+    --approved: #2DD4A7;
+    --approved-bg: rgba(45, 212, 167, 0.12);
+    --pending: #F5A623;
+    --pending-bg: rgba(245, 166, 35, 0.12);
+    --denied: #F0605B;
+    --denied-bg: rgba(240, 96, 91, 0.12);
+    --wfh: #4FA6E8;
+    --radius: 10px;
+    --radius-lg: 16px;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Inter', -apple-system, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  body {
+    background-image:
+      radial-gradient(circle at 15% -10%, rgba(108, 99, 255, 0.10), transparent 40%),
+      radial-gradient(circle at 90% 10%, rgba(79, 166, 232, 0.06), transparent 35%);
+    min-height: 100vh;
+  }
+
+  h1, h2, h3, .display {
+    font-family: 'Space Grotesk', sans-serif;
+    letter-spacing: -0.01em;
+  }
+
+  .mono { font-family: 'JetBrains Mono', monospace; }
+
+  a { color: inherit; }
+
+  ::selection { background: var(--accent-dim); }
+
+  button {
+    font-family: 'Inter', sans-serif;
+    cursor: pointer;
+    border: none;
+    outline: none;
+  }
+
+  input, select, textarea {
+    font-family: 'Inter', sans-serif;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: 8px;
+    padding: 9px 12px;
+    font-size: 14px;
+    outline: none;
+    transition: border-color 0.15s ease;
+  }
+  input:focus, select:focus, textarea:focus { border-color: var(--accent); }
+  input::placeholder, textarea::placeholder { color: var(--text-faint); }
+
+  /* ---------- Shell ---------- */
+  .shell {
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 28px 24px 80px;
+  }
+
+  .topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 22px;
+  }
+
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .brand-mark {
+    width: 34px;
+    height: 34px;
+    border-radius: 9px;
+    background: linear-gradient(135deg, var(--accent), #4FA6E8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 700;
+    font-size: 16px;
+    color: #fff;
+    flex-shrink: 0;
+  }
+
+  .brand-name {
+    font-size: 19px;
+    font-weight: 600;
+  }
+
+  .brand-sub {
+    font-size: 11px;
+    color: var(--text-faint);
+    margin-top: -2px;
+  }
+
+  .identity-pill {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 7px 14px 7px 8px;
+    border-radius: 100px;
+    font-size: 13px;
+    color: var(--text-dim);
+  }
+
+  .identity-avatar {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: var(--surface-3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--text);
+  }
+
+  .conn-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--text-faint);
+    display: inline-block;
+    margin-right: 6px;
+    transition: background 0.3s ease;
+  }
+  .conn-dot.live { background: var(--approved); box-shadow: 0 0 8px var(--approved); }
+
+  /* ---------- Ticker banner (signature element) ---------- */
+  .ticker {
+    background: var(--surface);
+    border: 1px solid var(--border-soft);
+    border-radius: var(--radius-lg);
+    padding: 16px 20px;
+    margin-bottom: 20px;
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .ticker::before {
+    content: '';
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 3px;
+    background: linear-gradient(180deg, var(--accent), var(--wfh));
+  }
+
+  .ticker-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-faint);
+    font-weight: 600;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  .ticker-people {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    flex: 1;
+  }
+
+  .ticker-chip {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    padding: 5px 12px 5px 6px;
+    border-radius: 100px;
+    font-size: 13px;
+  }
+
+  .chip-avatar {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: var(--approved-bg);
+    color: var(--approved);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    font-weight: 700;
+  }
+
+  .ticker-empty {
+    color: var(--text-faint);
+    font-size: 13.5px;
+  }
+
+  /* ---------- Toolbar ---------- */
+  .toolbar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 18px;
+    flex-wrap: wrap;
+  }
+
+  .btn {
+    padding: 9px 16px;
+    border-radius: 8px;
+    font-size: 13.5px;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.15s ease;
+  }
+  .btn-primary { background: var(--accent); color: #fff; }
+  .btn-primary:hover { background: #7d75ff; }
+  .btn-ghost { background: var(--surface); color: var(--text-dim); border: 1px solid var(--border); }
+  .btn-ghost:hover { color: var(--text); border-color: var(--text-faint); }
+  .btn-sm { padding: 6px 12px; font-size: 12.5px; }
+
+  .toolbar-spacer { flex: 1; }
+
+  .segmented {
+    display: flex;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 2px;
+  }
+  .segmented button {
+    background: transparent;
+    color: var(--text-faint);
+    font-size: 13px;
+    font-weight: 600;
+    padding: 6px 14px;
+    border-radius: 6px;
+  }
+  .segmented button.active { background: var(--surface-3); color: var(--text); }
+
+  select.filter-select { font-size: 13px; padding: 8px 10px; }
+
+  /* ---------- List view ---------- */
+  .month-group { margin-bottom: 22px; }
+  .month-label {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-faint);
+    font-weight: 600;
+    margin: 0 0 10px 4px;
+  }
+
+  .req-card {
+    background: var(--surface);
+    border: 1px solid var(--border-soft);
+    border-radius: var(--radius);
+    padding: 14px 16px;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    transition: border-color 0.15s ease;
+  }
+  .req-card:hover { border-color: var(--border); }
+
+  .req-avatar {
+    width: 38px;
+    height: 38px;
+    border-radius: 10px;
+    background: var(--surface-3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    font-weight: 700;
+    font-family: 'Space Grotesk', sans-serif;
+    flex-shrink: 0;
+    color: var(--text);
+  }
+
+  .req-main { flex: 1; min-width: 0; }
+  .req-name { font-weight: 600; font-size: 14.5px; margin-bottom: 2px; }
+  .req-dates {
+    font-size: 12.5px;
+    color: var(--text-dim);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .req-notes {
+    font-size: 12.5px;
+    color: var(--text-faint);
+    margin-top: 4px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .badge {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    padding: 4px 9px;
+    border-radius: 6px;
+    white-space: nowrap;
+  }
+  .badge-pending { background: var(--pending-bg); color: var(--pending); }
+  .badge-approved { background: var(--approved-bg); color: var(--approved); }
+  .badge-denied { background: var(--denied-bg); color: var(--denied); }
+
+  .type-tag {
+    font-size: 11px;
+    color: var(--text-dim);
+    background: var(--surface-2);
+    padding: 3px 8px;
+    border-radius: 6px;
+    text-transform: capitalize;
+  }
+
+  .req-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+  }
+
+  .icon-btn {
+    width: 30px;
+    height: 30px;
+    border-radius: 7px;
+    background: var(--surface-2);
+    color: var(--text-dim);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    transition: all 0.15s ease;
+  }
+  .icon-btn:hover { background: var(--surface-3); color: var(--text); }
+  .icon-btn.approve:hover { background: var(--approved-bg); color: var(--approved); }
+  .icon-btn.deny:hover { background: var(--denied-bg); color: var(--denied); }
+  .icon-btn.danger:hover { background: var(--denied-bg); color: var(--denied); }
+
+  .empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--text-faint);
+  }
+  .empty-state .display { font-size: 17px; color: var(--text-dim); margin-bottom: 6px; }
+
+  /* ---------- Calendar view ---------- */
+  .cal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 14px;
+  }
+  .cal-title { font-size: 17px; font-weight: 600; }
+  .cal-nav { display: flex; gap: 6px; }
+
+  .cal-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 6px;
+  }
+  .cal-dow {
+    font-size: 11px;
+    text-transform: uppercase;
+    color: var(--text-faint);
+    text-align: center;
+    padding-bottom: 6px;
+    font-weight: 600;
+  }
+  .cal-day {
+    background: var(--surface);
+    border: 1px solid var(--border-soft);
+    border-radius: 8px;
+    min-height: 84px;
+    padding: 6px;
+    font-size: 12px;
+  }
+  .cal-day.other-month { opacity: 0.35; }
+  .cal-day.today { border-color: var(--accent); }
+  .cal-daynum { color: var(--text-dim); font-size: 11.5px; margin-bottom: 4px; }
+  .cal-chip {
+    font-size: 10px;
+    background: var(--surface-2);
+    border-radius: 4px;
+    padding: 2px 5px;
+    margin-bottom: 3px;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .cal-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+
+  /* ---------- Modal ---------- */
+  .modal-backdrop {
+    position: fixed; inset: 0;
+    background: rgba(6, 7, 10, 0.72);
+    backdrop-filter: blur(3px);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 100;
+    padding: 20px;
+  }
+  .modal {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    width: 100%;
+    max-width: 460px;
+    padding: 24px;
+    max-height: 88vh;
+    overflow-y: auto;
+  }
+  .modal h3 { margin: 0 0 18px; font-size: 18px; }
+  .field { margin-bottom: 14px; }
+  .field label {
+    display: block;
+    font-size: 12.5px;
+    color: var(--text-dim);
+    margin-bottom: 6px;
+    font-weight: 500;
+  }
+  .field input, .field select, .field textarea { width: 100%; }
+  .field-row { display: flex; gap: 10px; }
+  .field-row .field { flex: 1; }
+  .modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 18px;
+  }
+
+  .people-list { max-height: 260px; overflow-y: auto; margin-bottom: 14px; }
+  .person-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 4px;
+    border-bottom: 1px solid var(--border-soft);
+    font-size: 14px;
+  }
+  .person-row:last-child { border-bottom: none; }
+
+  /* ---------- Activity drawer ---------- */
+  .drawer-backdrop {
+    position: fixed; inset: 0;
+    background: rgba(6,7,10,0.5);
+    z-index: 90;
+  }
+  .drawer {
+    position: fixed;
+    top: 0; right: 0; bottom: 0;
+    width: 340px;
+    max-width: 90vw;
+    background: var(--surface);
+    border-left: 1px solid var(--border);
+    z-index: 95;
+    padding: 22px;
+    overflow-y: auto;
+  }
+  .drawer h3 { margin: 0 0 16px; font-size: 16px; }
+  .activity-item {
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border-soft);
+    font-size: 13px;
+  }
+  .activity-item .a-actor { font-weight: 600; color: var(--text); }
+  .activity-item .a-time { color: var(--text-faint); font-size: 11px; margin-top: 3px; }
+
+  .close-x {
+    position: absolute; top: 18px; right: 18px;
+    width: 28px; height: 28px;
+    border-radius: 50%;
+    background: var(--surface-2);
+    display: flex; align-items: center; justify-content: center;
+    color: var(--text-dim);
+  }
+  .close-x:hover { color: var(--text); }
+
+  /* Identity gate */
+  .gate-backdrop {
+    position: fixed; inset: 0;
+    background: var(--bg);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 200;
+  }
+  .gate-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 32px;
+    width: 100%;
+    max-width: 380px;
+    text-align: center;
+  }
+  .gate-card .brand-mark { margin: 0 auto 14px; width: 44px; height: 44px; font-size: 20px; }
+  .gate-card h2 { margin: 0 0 6px; font-size: 20px; }
+  .gate-card p { color: var(--text-dim); font-size: 13.5px; margin: 0 0 20px; }
+  .gate-options { display: flex; flex-direction: column; gap: 8px; }
+  .gate-btn {
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 12px;
+    border-radius: 9px;
+    font-size: 14px;
+    font-weight: 600;
+  }
+  .gate-btn:hover { border-color: var(--accent); }
+
+  @media (max-width: 640px) {
+    .req-card { flex-wrap: wrap; }
+    .req-actions { width: 100%; justify-content: flex-end; }
+    .cal-grid { grid-template-columns: repeat(7, minmax(0,1fr)); }
+    .cal-day { min-height: 60px; padding: 4px; }
+  }
+
+  .toast {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--surface-3);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 10px 18px;
+    border-radius: 9px;
+    font-size: 13px;
+    z-index: 300;
+    opacity: 0;
+    transition: opacity 0.25s ease, transform 0.25s ease;
+    pointer-events: none;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(-6px); }
+</style>
+</head>
+<body>
+
+<div id="gate" class="gate-backdrop" style="display:none;">
+  <div class="gate-card">
+    <div class="brand-mark">N</div>
+    <h2 id="gateTitle">Sign in to NeedLeave</h2>
+    <p id="gateSubtitle">Only people with an account can view or edit leave data.</p>
+
+    <div class="field" style="text-align:left;">
+      <label id="gateNameLabel" style="display:none;">Your name</label>
+      <input id="gateName" placeholder="Your name" style="width:100%; display:none; margin-bottom:10px;">
+      <label id="gateInviteLabel" style="display:none;">Invite code</label>
+      <input id="gateInvite" placeholder="Invite code" style="width:100%; display:none; margin-bottom:10px;">
+      <label>Email</label>
+      <input id="gateEmail" type="email" placeholder="you@example.com" style="width:100%; margin-bottom:10px;">
+      <label>Password</label>
+      <input id="gatePassword" type="password" placeholder="••••••••" style="width:100%;" onkeydown="if(event.key==='Enter') handleGateSubmit()">
+    </div>
+
+    <div id="gateError" style="color:var(--denied); font-size:12.5px; margin-top:8px; display:none;"></div>
+    <div id="gateInfo" style="color:var(--approved); font-size:12.5px; margin-top:8px; display:none;"></div>
+
+    <button id="gateSubmitBtn" class="btn btn-primary" style="width:100%; justify-content:center; margin-top:16px;" onclick="handleGateSubmit()">Sign in</button>
+
+    <p style="margin-top:16px; font-size:13px;">
+      <span id="gateToggleText">New here?</span>
+      <a href="#" id="gateToggleLink" style="color:var(--accent); font-weight:600; text-decoration:none;" onclick="toggleGateMode(); return false;">Create an account</a>
+    </p>
+  </div>
+</div>
+
+<div class="shell">
+  <div class="topbar">
+    <div class="brand">
+      <div class="brand-mark">N</div>
+      <div>
+        <div class="brand-name">NeedLeave</div>
+        <div class="brand-sub"><span id="connDot" class="conn-dot"></span><span id="connLabel">connecting…</span></div>
+      </div>
+    </div>
+    <div class="identity-pill">
+      <div class="identity-avatar" id="idAvatar">?</div>
+      <span id="idName">—</span>
+      <span style="color:var(--text-faint); cursor:pointer;" onclick="handleSignOut()" title="Sign out">⏻</span>
+    </div>
+  </div>
+
+  <div class="ticker">
+    <div class="ticker-label">Out today</div>
+    <div class="ticker-people" id="tickerPeople">
+      <span class="ticker-empty">Loading…</span>
+    </div>
+  </div>
+
+  <div class="toolbar">
+    <button class="btn btn-primary" onclick="openRequestModal()">+ New request</button>
+    <button class="btn btn-ghost" onclick="openPeopleModal()">Team</button>
+    <button class="btn btn-ghost" onclick="openActivity()">Activity</button>
+    <div class="toolbar-spacer"></div>
+    <select id="filterPerson" class="filter-select" onchange="renderAll()">
+      <option value="">All people</option>
+    </select>
+    <select id="filterStatus" class="filter-select" onchange="renderAll()">
+      <option value="">All statuses</option>
+      <option value="pending">Pending</option>
+      <option value="approved">Approved</option>
+      <option value="denied">Denied</option>
+    </select>
+    <div class="segmented">
+      <button id="viewListBtn" class="active" onclick="setView('list')">List</button>
+      <button id="viewCalBtn" onclick="setView('calendar')">Calendar</button>
+    </div>
+  </div>
+
+  <div id="listView"></div>
+  <div id="calView" style="display:none;"></div>
+</div>
+
+<div id="modalRoot"></div>
+<div id="drawerRoot"></div>
+<div id="toast" class="toast"></div>
+
+<script>
+/* ============ CONFIG ============ */
+const SUPABASE_URL = 'https://eenebskcejbobkkmziaz.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_IM6YvB08eoi0D76YSYDThw_eKxTjVE7';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const INVITE_CODE = 'khuljasimsim'; // <-- set your own shared invite code here
+
+/* ============ STATE ============ */
+let people = [];
+let requests = [];
+let activity = [];
+let currentView = 'list';
+let calMonth = new Date().getMonth();
+let calYear = new Date().getFullYear();
+let identity = null;
+
+const TYPE_LABELS = { vacation: 'Vacation', sick: 'Sick', wfh: 'WFH', other: 'Other' };
+const HALF_LABELS = { first: 'First Half', second: 'Second Half' };
+const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+const DOWS = ['Su','Mo','Tu','We','Th','Fr','Sa'];
+const PERSON_COLORS = ['#6C63FF','#2DD4A7','#4FA6E8','#F5A623','#F0605B','#E879F9','#34D399','#FB923C','#60A5FA','#F472B6','#A78BFA','#22D3EE'];
+
+function getPersonColor(personOrId) {
+  const p = typeof personOrId === 'string' ? people.find(x => x.id === personOrId) : personOrId;
+  return (p && p.color) || '#6C63FF';
+}
+
+function nextAvailableColor() {
+  const used = new Set(people.map(p => p.color).filter(Boolean));
+  const free = PERSON_COLORS.find(c => !used.has(c));
+  return free || PERSON_COLORS[people.length % PERSON_COLORS.length];
+}
+
+/* ============ IDENTITY GATE ============ */
+function initials(name) {
+  if (!name) return '?';
+  const parts = name.trim().split(/\s+/);
+  return (parts[0][0] + (parts[1] ? parts[1][0] : '')).toUpperCase();
+}
+
+let gateMode = 'signin'; // or 'signup'
+
+function showGate() {
+  document.getElementById('gate').style.display = 'flex';
+}
+
+function hideGate() {
+  document.getElementById('gate').style.display = 'none';
+  document.getElementById('gateError').style.display = 'none';
+  document.getElementById('gateInfo').style.display = 'none';
+}
+
+function toggleGateMode() {
+  gateMode = gateMode === 'signin' ? 'signup' : 'signin';
+  const isSignup = gateMode === 'signup';
+  document.getElementById('gateTitle').textContent = isSignup ? 'Create your account' : 'Sign in to NeedLeave';
+  document.getElementById('gateSubtitle').textContent = isSignup
+    ? 'Set up access for yourself — you\'ll get a confirmation email.'
+    : 'Only people with an account can view or edit leave data.';
+  document.getElementById('gateName').style.display = isSignup ? 'block' : 'none';
+  document.getElementById('gateNameLabel').style.display = isSignup ? 'block' : 'none';
+  document.getElementById('gateInvite').style.display = isSignup ? 'block' : 'none';
+  document.getElementById('gateInviteLabel').style.display = isSignup ? 'block' : 'none';
+  document.getElementById('gateSubmitBtn').textContent = isSignup ? 'Create account' : 'Sign in';
+  document.getElementById('gateToggleText').textContent = isSignup ? 'Already have an account?' : 'New here?';
+  document.getElementById('gateToggleLink').textContent = isSignup ? 'Sign in instead' : 'Create an account';
+  document.getElementById('gateError').style.display = 'none';
+  document.getElementById('gateInfo').style.display = 'none';
+}
+
+function showGateError(msg) {
+  const el = document.getElementById('gateError');
+  el.textContent = msg;
+  el.style.display = 'block';
+  document.getElementById('gateInfo').style.display = 'none';
+}
+
+function showGateInfo(msg) {
+  const el = document.getElementById('gateInfo');
+  el.textContent = msg;
+  el.style.display = 'block';
+  document.getElementById('gateError').style.display = 'none';
+}
+
+async function handleGateSubmit() {
+  const email = document.getElementById('gateEmail').value.trim();
+  const password = document.getElementById('gatePassword').value;
+  const name = document.getElementById('gateName').value.trim();
+  const invite = document.getElementById('gateInvite').value.trim();
+  const btn = document.getElementById('gateSubmitBtn');
+
+  if (!email || !password) { showGateError('Enter your email and password.'); return; }
+  if (gateMode === 'signup' && !name) { showGateError('Enter your name.'); return; }
+  if (gateMode === 'signup' && invite !== INVITE_CODE) { showGateError('Invalid invite code.'); return; }
+
+  btn.textContent = 'Please wait…';
+
+  if (gateMode === 'signup') {
+    const { data, error } = await sb.auth.signUp({
+      email, password,
+      options: { data: { full_name: name } }
+    });
+    btn.textContent = 'Create account';
+    if (error) { showGateError(error.message); return; }
+    if (data.session) {
+      // Email confirmations off — signed in immediately
+      onSignedIn(data.session);
+    } else {
+      showGateInfo('Account created! Check your email to confirm, then sign in.');
+      toggleGateMode();
+    }
+  } else {
+    const { data, error } = await sb.auth.signInWithPassword({ email, password });
+    btn.textContent = 'Sign in';
+    if (error) { showGateError(error.message); return; }
+    onSignedIn(data.session);
+  }
+}
+
+function onSignedIn(session) {
+  identity = session.user.user_metadata?.full_name || session.user.email;
+  hideGate();
+  document.getElementById('idAvatar').textContent = initials(identity);
+  document.getElementById('idName').textContent = identity;
+  boot();
+}
+
+async function handleSignOut() {
+  await sb.auth.signOut();
+  location.reload();
+}
+
+/* ============ TOAST ============ */
+let toastTimer;
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+/* ============ DATA LOADING ============ */
+async function loadPeople() {
+  const { data, error } = await sb.from('people').select('*').order('name');
+  if (error) { console.error(error); return; }
+  people = data;
+  const sel = document.getElementById('filterPerson');
+  const current = sel.value;
+  sel.innerHTML = '<option value="">All people</option>' + people.map(p => `<option value="${p.id}">${escapeHtml(p.name)}</option>`).join('');
+  sel.value = current;
+}
+
+async function loadRequests() {
+  const { data, error } = await sb.from('leave_requests').select('*, people(name)').order('start_date');
+  if (error) { console.error(error); return; }
+  requests = data;
+}
+
+async function loadActivity() {
+  const { data, error } = await sb.from('activity_log').select('*').order('created_at', { ascending: false }).limit(50);
+  if (error) { console.error(error); return; }
+  activity = data;
+}
+
+async function logActivity(action, details) {
+  await sb.from('activity_log').insert({ action, details, actor: identity });
+}
+
+/* ============ REALTIME ============ */
+function setupRealtime() {
+  sb.channel('needleave-changes')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'leave_requests' }, () => { loadRequests().then(renderAll); })
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'people' }, () => { loadPeople().then(renderAll); })
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'activity_log' }, () => { loadActivity().then(renderActivityDrawerIfOpen); })
+    .subscribe((status) => {
+      const dot = document.getElementById('connDot');
+      const label = document.getElementById('connLabel');
+      if (status === 'SUBSCRIBED') {
+        dot.classList.add('live');
+        label.textContent = 'live sync';
+      } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+        dot.classList.remove('live');
+        label.textContent = 'reconnecting…';
+      }
+    });
+}
+
+/* ============ RENDER: TICKER ============ */
+function todayStr() {
+  const d = new Date();
+  return d.toISOString().slice(0,10);
+}
+
+function renderTicker() {
+  const today = todayStr();
+  const outToday = requests.filter(r => r.status === 'approved' && r.start_date <= today && r.end_date >= today);
+  const el = document.getElementById('tickerPeople');
+  if (outToday.length === 0) {
+    el.innerHTML = '<span class="ticker-empty">u go chutti 🎉</span>';
+    return;
+  }
+  el.innerHTML = outToday.map(r => {
+    const color = getPersonColor(r.person_id);
+    return `
+    <div class="ticker-chip">
+      <div class="chip-avatar" style="background:${color}22; color:${color};">${initials(r.people ? r.people.name : '?')}</div>
+      <span>${escapeHtml(r.people ? r.people.name : 'Unknown')}</span>
+      <span class="type-tag" style="padding:1px 6px; font-size:10px;">${TYPE_LABELS[r.leave_type] || r.leave_type}${r.half_day ? ' · ' + HALF_LABELS[r.half_day] : ''}</span>
+    </div>
+  `;
+  }).join('');
+}
+
+/* ============ RENDER: LIST ============ */
+function getFilteredRequests() {
+  const person = document.getElementById('filterPerson').value;
+  const status = document.getElementById('filterStatus').value;
+  let list = [...requests];
+  if (person) list = list.filter(r => r.person_id === person);
+  if (status) list = list.filter(r => r.status === status);
+  list.sort((a,b) => a.start_date.localeCompare(b.start_date));
+  return list;
+}
+
+function formatDate(dstr) {
+  const d = new Date(dstr + 'T00:00:00');
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+function monthKey(dstr) {
+  const d = new Date(dstr + 'T00:00:00');
+  return `${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
+}
+
+function renderList() {
+  const list = getFilteredRequests();
+  const el = document.getElementById('listView');
+  if (list.length === 0) {
+    el.innerHTML = `<div class="empty-state"><div class="display">No leave requests here</div>Add one with "New request" above.</div>`;
+    return;
+  }
+  const groups = {};
+  list.forEach(r => {
+    const k = monthKey(r.start_date);
+    if (!groups[k]) groups[k] = [];
+    groups[k].push(r);
+  });
+  el.innerHTML = Object.keys(groups).map(k => `
+    <div class="month-group">
+      <div class="month-label">${k}</div>
+      ${groups[k].map(r => renderReqCard(r)).join('')}
+    </div>
+  `).join('');
+}
+
+function renderReqCard(r) {
+  const name = r.people ? r.people.name : 'Unknown';
+  const color = getPersonColor(r.person_id);
+  const badgeClass = r.status === 'approved' ? 'badge-approved' : r.status === 'denied' ? 'badge-denied' : 'badge-pending';
+  return `
+    <div class="req-card">
+      <div class="req-avatar" style="background:${color}22; color:${color}; border:1px solid ${color}44;">${initials(name)}</div>
+      <div class="req-main">
+        <div class="req-name">${escapeHtml(name)}</div>
+        <div class="req-dates">
+          <span class="mono">${formatDate(r.start_date)} → ${formatDate(r.end_date)}</span>
+          <span class="type-tag">${TYPE_LABELS[r.leave_type] || r.leave_type}${r.half_day ? ' · ' + HALF_LABELS[r.half_day] : ''}</span>
+        </div>
+        ${r.notes ? `<div class="req-notes">${escapeHtml(r.notes)}</div>` : ''}
+      </div>
+      <span class="badge ${badgeClass}">${r.status}</span>
+      <div class="req-actions">
+        ${r.status !== 'approved' ? `<button class="icon-btn approve" title="Approve" onclick="updateStatus('${r.id}','approved')">✓</button>` : ''}
+        ${r.status !== 'denied' ? `<button class="icon-btn deny" title="Deny" onclick="updateStatus('${r.id}','denied')">✕</button>` : ''}
+        <button class="icon-btn" title="Edit" onclick="openRequestModal('${r.id}')">✎</button>
+        <button class="icon-btn danger" title="Delete" onclick="deleteRequest('${r.id}')">🗑</button>
+      </div>
+    </div>
+  `;
+}
+
+/* ============ RENDER: CALENDAR ============ */
+function renderCalendar() {
+  const el = document.getElementById('calView');
+  const first = new Date(calYear, calMonth, 1);
+  const startDow = first.getDay();
+  const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
+  const daysInPrevMonth = new Date(calYear, calMonth, 0).getDate();
+  const todayIso = todayStr();
+
+  const filtered = getFilteredRequests();
+
+  let cells = [];
+  for (let i = startDow - 1; i >= 0; i--) {
+    cells.push({ day: daysInPrevMonth - i, otherMonth: true, iso: null });
+  }
+  for (let d = 1; d <= daysInMonth; d++) {
+    const iso = `${calYear}-${String(calMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    cells.push({ day: d, otherMonth: false, iso });
+  }
+  while (cells.length % 7 !== 0) {
+    cells.push({ day: cells.length, otherMonth: true, iso: null });
+  }
+
+  const dowHtml = DOWS.map(d => `<div class="cal-dow">${d}</div>`).join('');
+  const cellHtml = cells.map(c => {
+    if (c.otherMonth) return `<div class="cal-day other-month"><div class="cal-daynum">${c.day}</div></div>`;
+    const onLeave = filtered.filter(r => r.start_date <= c.iso && r.end_date >= c.iso);
+    const isToday = c.iso === todayIso;
+    const chips = onLeave.slice(0,3).map(r => {
+      const color = getPersonColor(r.person_id);
+      const name = r.people ? r.people.name : '?';
+      const faded = r.status !== 'approved' ? 'opacity:0.55;' : '';
+      const decoration = r.half_day ? `text-decoration: underline; text-decoration-color: ${color}; text-decoration-thickness: 2px;` : `text-decoration: line-through; text-decoration-color: ${color}; text-decoration-thickness: 2px;`;
+      const statusMark = r.status === 'pending' ? ' ?' : r.status === 'denied' ? ' ✕' : '';
+      return `<div class="cal-chip" style="${faded}"><span class="cal-dot" style="background:${color}"></span><span style="${decoration}">${escapeHtml(name)}</span>${statusMark}</div>`;
+    }).join('');
+    const more = onLeave.length > 3 ? `<div class="cal-chip" style="color:var(--text-faint)">+${onLeave.length - 3} more</div>` : '';
+    return `<div class="cal-day ${isToday ? 'today' : ''}"><div class="cal-daynum">${c.day}</div>${chips}${more}</div>`;
+  }).join('');
+
+  el.innerHTML = `
+    <div class="cal-header">
+      <div class="cal-title">${MONTHS[calMonth]} ${calYear}</div>
+      <div class="cal-nav">
+        <button class="btn btn-ghost btn-sm" onclick="navMonth(-1)">←</button>
+        <button class="btn btn-ghost btn-sm" onclick="navMonth(0)">Today</button>
+        <button class="btn btn-ghost btn-sm" onclick="navMonth(1)">→</button>
+      </div>
+    </div>
+    <div class="cal-grid">${dowHtml}${cellHtml}</div>
+    <div style="margin-top:12px; font-size:11.5px; color:var(--text-faint); display:flex; gap:16px; flex-wrap:wrap;">
+      <span><s style="text-decoration-thickness:2px;">Name</s> = full day off</span>
+      <span><span style="text-decoration: underline; text-decoration-thickness: 2px;">Name</span> = half day off</span>
+      <span>? = pending &nbsp; ✕ = denied &nbsp; · &nbsp; color = person</span>
+    </div>
+  `;
+}
+
+function navMonth(dir) {
+  if (dir === 0) {
+    calMonth = new Date().getMonth();
+    calYear = new Date().getFullYear();
+  } else {
+    calMonth += dir;
+    if (calMonth < 0) { calMonth = 11; calYear--; }
+    if (calMonth > 11) { calMonth = 0; calYear++; }
+  }
+  renderCalendar();
+}
+
+function setView(v) {
+  currentView = v;
+  document.getElementById('listView').style.display = v === 'list' ? 'block' : 'none';
+  document.getElementById('calView').style.display = v === 'calendar' ? 'block' : 'none';
+  document.getElementById('viewListBtn').classList.toggle('active', v === 'list');
+  document.getElementById('viewCalBtn').classList.toggle('active', v === 'calendar');
+  renderAll();
+}
+
+/* ============ RENDER ALL ============ */
+function renderAll() {
+  renderTicker();
+  if (currentView === 'list') renderList(); else renderCalendar();
+}
+
+/* ============ REQUEST MODAL ============ */
+function openRequestModal(id) {
+  const existing = id ? requests.find(r => r.id === id) : null;
+  const root = document.getElementById('modalRoot');
+  root.innerHTML = `
+    <div class="modal-backdrop" onclick="if(event.target===this) closeModal()">
+      <div class="modal">
+        <h3>${existing ? 'Edit request' : 'New leave request'}</h3>
+        <div class="field">
+          <label>Person</label>
+          <select id="f_person">
+            ${people.map(p => `<option value="${p.id}" ${existing && existing.person_id === p.id ? 'selected' : ''}>${escapeHtml(p.name)}</option>`).join('')}
+          </select>
+        </div>
+        <div class="field-row">
+          <div class="field">
+            <label>Start date</label>
+            <input type="date" id="f_start" value="${existing ? existing.start_date : todayStr()}" onchange="onModalDatesChanged()">
+          </div>
+          <div class="field">
+            <label>End date</label>
+            <input type="date" id="f_end" value="${existing ? existing.end_date : todayStr()}" onchange="onModalDatesChanged()">
+          </div>
+        </div>
+        <div class="field-row">
+          <div class="field">
+            <label>Type</label>
+            <select id="f_type">
+              ${Object.keys(TYPE_LABELS).map(k => `<option value="${k}" ${existing && existing.leave_type === k ? 'selected' : ''}>${TYPE_LABELS[k]}</option>`).join('')}
+            </select>
+          </div>
+          <div class="field">
+            <label>Duration</label>
+            <select id="f_half">
+              <option value="" ${existing && !existing.half_day ? 'selected' : ''}>Full day</option>
+              <option value="first" ${existing && existing.half_day === 'first' ? 'selected' : ''}>First half</option>
+              <option value="second" ${existing && existing.half_day === 'second' ? 'selected' : ''}>Second half</option>
+            </select>
+          </div>
+        </div>
+        <div class="field">
+          <label>Status</label>
+          <select id="f_status">
+            <option value="pending" ${existing && existing.status === 'pending' ? 'selected' : ''}>Pending</option>
+            <option value="approved" ${existing && existing.status === 'approved' ? 'selected' : ''}>Approved</option>
+            <option value="denied" ${existing && existing.status === 'denied' ? 'selected' : ''}>Denied</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Notes</label>
+          <textarea id="f_notes" rows="2" placeholder="Optional context...">${existing ? (existing.notes || '') : ''}</textarea>
+        </div>
+        <div class="modal-actions">
+          <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+          <button class="btn btn-primary" onclick="saveRequest(${existing ? `'${existing.id}'` : 'null'})">Save</button>
+        </div>
+      </div>
+    </div>
+  `;
+  onModalDatesChanged();
+}
+
+function onModalDatesChanged() {
+  const start = document.getElementById('f_start').value;
+  const end = document.getElementById('f_end').value;
+  const halfSel = document.getElementById('f_half');
+  if (!halfSel) return;
+  const singleDay = start && end && start === end;
+  halfSel.disabled = !singleDay;
+  if (!singleDay) halfSel.value = '';
+}
+
+async function saveRequest(id) {
+  if (people.length === 0) { toast('Add someone to the team first'); return; }
+  const person_id = document.getElementById('f_person').value;
+  const start_date = document.getElementById('f_start').value;
+  const end_date = document.getElementById('f_end').value;
+  const leave_type = document.getElementById('f_type').value;
+  const status = document.getElementById('f_status').value;
+  const notes = document.getElementById('f_notes').value;
+  const half_day = (start_date === end_date) ? (document.getElementById('f_half').value || null) : null;
+
+  if (!start_date || !end_date) { toast('Please set both dates'); return; }
+  if (end_date < start_date) { toast('End date is before start date'); return; }
+
+  const personName = people.find(p => p.id === person_id)?.name || 'Someone';
+  const durTag = half_day ? ` (${HALF_LABELS[half_day]})` : '';
+
+  if (id) {
+    const { error } = await sb.from('leave_requests').update({ person_id, start_date, end_date, leave_type, status, notes, half_day, updated_at: new Date().toISOString() }).eq('id', id);
+    if (error) { toast('Error saving'); console.error(error); return; }
+    await logActivity('edited', `${personName}'s request (${start_date} → ${end_date})${durTag}`);
+    toast('Request updated');
+  } else {
+    const { error } = await sb.from('leave_requests').insert({ person_id, start_date, end_date, leave_type, status, notes, half_day, created_by: identity });
+    if (error) { toast('Error saving'); console.error(error); return; }
+    await logActivity('added', `${personName}'s request (${start_date} → ${end_date})${durTag}`);
+    toast('Request added');
+  }
+  closeModal();
+  await loadRequests();
+  renderAll();
+}
+
+async function updateStatus(id, status) {
+  const r = requests.find(x => x.id === id);
+  const { error } = await sb.from('leave_requests').update({ status, updated_at: new Date().toISOString() }).eq('id', id);
+  if (error) { toast('Error updating'); console.error(error); return; }
+  const name = r && r.people ? r.people.name : 'Request';
+  await logActivity(status, `${name}'s request marked ${status}`);
+  toast(`Marked ${status}`);
+  await loadRequests();
+  renderAll();
+}
+
+async function deleteRequest(id) {
+  if (!confirm('Delete this leave request? This cannot be undone.')) return;
+  const r = requests.find(x => x.id === id);
+  const name = r && r.people ? r.people.name : 'a request';
+  const { error } = await sb.from('leave_requests').delete().eq('id', id);
+  if (error) { toast('Error deleting'); console.error(error); return; }
+  await logActivity('deleted', `Deleted ${name}'s request`);
+  toast('Request deleted');
+  await loadRequests();
+  renderAll();
+}
+
+/* ============ PEOPLE MODAL ============ */
+function openPeopleModal() {
+  const root = document.getElementById('modalRoot');
+  root.innerHTML = `
+    <div class="modal-backdrop" onclick="if(event.target===this) closeModal()">
+      <div class="modal">
+        <h3>Manage team</h3>
+        <div class="people-list" id="peopleListInner">
+          ${people.map(p => `
+            <div class="person-row">
+              <span style="display:flex; align-items:center; gap:9px;">
+                <input type="color" value="${p.color || '#6C63FF'}" title="Assign color" style="width:26px; height:26px; padding:0; border:none; border-radius:6px; background:none; cursor:pointer;" onchange="updatePersonColor('${p.id}', this.value)">
+                ${escapeHtml(p.name)}
+              </span>
+              <button class="icon-btn danger" onclick="deletePerson('${p.id}', '${escapeHtml(p.name)}')">🗑</button>
+            </div>
+          `).join('') || '<div style="color:var(--text-faint); font-size:13px;">No one added yet.</div>'}
+        </div>
+        <div class="field-row">
+          <input id="newPersonName" placeholder="Add team member name" style="flex:1;" onkeydown="if(event.key==='Enter') addPerson()">
+          <button class="btn btn-primary" onclick="addPerson()">Add</button>
+        </div>
+        <div class="modal-actions">
+          <button class="btn btn-ghost" onclick="closeModal()">Close</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+async function addPerson() {
+  const input = document.getElementById('newPersonName');
+  const name = input.value.trim();
+  if (!name) return;
+  const color = nextAvailableColor();
+  const { error } = await sb.from('people').insert({ name, color });
+  if (error) { toast('Error adding person'); console.error(error); return; }
+  await logActivity('added', `Added ${name} to the team`);
+  await loadPeople();
+  toast(`${name} added`);
+  openPeopleModal();
+  renderAll();
+}
+
+async function updatePersonColor(id, color) {
+  const { error } = await sb.from('people').update({ color }).eq('id', id);
+  if (error) { toast('Error updating color'); console.error(error); return; }
+  await loadPeople();
+  await loadRequests();
+  renderAll();
+}
+
+async function deletePerson(id, name) {
+  if (!confirm(`Remove ${name} from the team? This also deletes their leave requests.`)) return;
+  const { error } = await sb.from('people').delete().eq('id', id);
+  if (error) { toast('Error removing'); console.error(error); return; }
+  await logActivity('removed', `Removed ${name} from the team`);
+  await loadPeople();
+  await loadRequests();
+  toast(`${name} removed`);
+  openPeopleModal();
+  renderAll();
+}
+
+/* ============ ACTIVITY DRAWER ============ */
+let activityOpen = false;
+function openActivity() {
+  activityOpen = true;
+  renderActivityDrawer();
+}
+function renderActivityDrawerIfOpen() {
+  if (activityOpen) renderActivityDrawer();
+}
+function renderActivityDrawer() {
+  const root = document.getElementById('drawerRoot');
+  root.innerHTML = `
+    <div class="drawer-backdrop" onclick="closeDrawer()"></div>
+    <div class="drawer">
+      <div class="close-x" onclick="closeDrawer()">✕</div>
+      <h3>Activity</h3>
+      ${activity.length === 0 ? '<div style="color:var(--text-faint); font-size:13px;">Nothing yet.</div>' : activity.map(a => `
+        <div class="activity-item">
+          <div><span class="a-actor">${escapeHtml(a.actor || 'Someone')}</span> ${a.action} — ${escapeHtml(a.details || '')}</div>
+          <div class="a-time">${new Date(a.created_at).toLocaleString('en-US', { month:'short', day:'numeric', hour:'numeric', minute:'2-digit' })}</div>
+        </div>
+      `).join('')}
+    </div>
+  `;
+}
+function closeDrawer() {
+  activityOpen = false;
+  document.getElementById('drawerRoot').innerHTML = '';
+}
+
+function closeModal() {
+  document.getElementById('modalRoot').innerHTML = '';
+}
+
+/* ============ UTIL ============ */
+function escapeHtml(str) {
+  if (str === null || str === undefined) return '';
+  return String(str).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+}
+
+/* ============ BOOT ============ */
+async function boot() {
+  await Promise.all([loadPeople(), loadRequests(), loadActivity()]);
+  renderAll();
+  setupRealtime();
+}
+
+document.addEventListener('DOMContentLoaded', async () => {
+  const { data } = await sb.auth.getSession();
+  if (data.session) {
+    onSignedIn(data.session);
+  } else {
+    showGate();
+  }
+});
+</script>
+</body>
+</html>
