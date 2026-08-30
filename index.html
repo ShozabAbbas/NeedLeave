@@ -649,11 +649,13 @@
     <div class="segmented">
       <button id="viewListBtn" class="active" onclick="setView('list')">List</button>
       <button id="viewCalBtn" onclick="setView('calendar')">Calendar</button>
+      <button id="viewHistBtn" onclick="setView('history')">History</button>
     </div>
   </div>
 
   <div id="listView"></div>
   <div id="calView" style="display:none;"></div>
+  <div id="histView" style="display:none;"></div>
 </div>
 
 <div id="modalRoot"></div>
@@ -1016,15 +1018,101 @@ function setView(v) {
   currentView = v;
   document.getElementById('listView').style.display = v === 'list' ? 'block' : 'none';
   document.getElementById('calView').style.display = v === 'calendar' ? 'block' : 'none';
+  document.getElementById('histView').style.display = v === 'history' ? 'block' : 'none';
   document.getElementById('viewListBtn').classList.toggle('active', v === 'list');
   document.getElementById('viewCalBtn').classList.toggle('active', v === 'calendar');
+  document.getElementById('viewHistBtn').classList.toggle('active', v === 'history');
   renderAll();
+}
+
+/* ============ RENDER: HISTORY ============ */
+function daysForRequest(r) {
+  const start = new Date(r.start_date + 'T00:00:00');
+  const end = new Date(r.end_date + 'T00:00:00');
+  const spanDays = Math.round((end - start) / 86400000) + 1;
+  if (spanDays === 1 && r.half_day) return 0.5;
+  return spanDays;
+}
+
+function formatDays(n) {
+  const rounded = Math.round(n * 2) / 2;
+  return (rounded % 1 === 0) ? String(rounded) : rounded.toFixed(1);
+}
+
+function renderHistory() {
+  const el = document.getElementById('histView');
+  const filterPersonId = document.getElementById('filterPerson').value;
+  const relevantPeople = filterPersonId ? people.filter(p => p.id === filterPersonId) : people;
+
+  if (relevantPeople.length === 0) {
+    el.innerHTML = `<div class="empty-state"><div class="display">No team members yet</div>Add people under "Team" to see their history here.</div>`;
+    return;
+  }
+
+  el.innerHTML = relevantPeople.map(p => {
+    const color = getPersonColor(p);
+    const theirRequests = requests.filter(r => r.person_id === p.id && r.status === 'approved');
+
+    if (theirRequests.length === 0) {
+      return `
+        <div class="req-card" style="align-items:flex-start; flex-direction:column; gap:4px; margin-bottom:14px;">
+          <div style="display:flex; align-items:center; gap:12px;">
+            <div class="req-avatar" style="background:${color}22; color:${color}; border:1px solid ${color}44;">${initials(p.name)}</div>
+            <div class="req-name">${escapeHtml(p.name)}</div>
+          </div>
+          <div style="color:var(--text-faint); font-size:13px; margin-left:52px;">No approved leaves on record.</div>
+        </div>
+      `;
+    }
+
+    const byMonth = {};
+    theirRequests.forEach(r => {
+      const key = monthKey(r.start_date);
+      if (!byMonth[key]) byMonth[key] = { total: 0, types: {} };
+      const d = daysForRequest(r);
+      byMonth[key].total += d;
+      byMonth[key].types[r.leave_type] = (byMonth[key].types[r.leave_type] || 0) + d;
+    });
+
+    const monthEntries = Object.entries(byMonth).sort((a, b) => {
+      const da = new Date(theirRequests.find(r => monthKey(r.start_date) === a[0]).start_date);
+      const db = new Date(theirRequests.find(r => monthKey(r.start_date) === b[0]).start_date);
+      return db - da;
+    });
+
+    const totalAllTime = theirRequests.reduce((sum, r) => sum + daysForRequest(r), 0);
+
+    const monthRows = monthEntries.map(([month, info]) => {
+      const typeStr = Object.entries(info.types).map(([t, d]) => `${formatDays(d)} ${TYPE_LABELS[t] || t}`).join(', ');
+      return `
+        <div style="display:flex; justify-content:space-between; align-items:center; padding:8px 0; border-bottom:1px solid var(--border-soft); font-size:13.5px;">
+          <span style="color:var(--text-dim);">${month}</span>
+          <span><strong>${formatDays(info.total)}</strong> day${info.total === 1 ? '' : 's'} <span style="color:var(--text-faint); font-size:12px;">(${typeStr})</span></span>
+        </div>
+      `;
+    }).join('');
+
+    return `
+      <div class="req-card" style="align-items:flex-start; flex-direction:column; gap:0; margin-bottom:14px; padding:16px;">
+        <div style="display:flex; align-items:center; justify-content:space-between; width:100%; margin-bottom:10px;">
+          <div style="display:flex; align-items:center; gap:12px;">
+            <div class="req-avatar" style="background:${color}22; color:${color}; border:1px solid ${color}44;">${initials(p.name)}</div>
+            <div class="req-name">${escapeHtml(p.name)}</div>
+          </div>
+          <div class="type-tag" style="font-size:12px;">${formatDays(totalAllTime)} days total on record</div>
+        </div>
+        <div style="width:100%;">${monthRows}</div>
+      </div>
+    `;
+  }).join('');
 }
 
 /* ============ RENDER ALL ============ */
 function renderAll() {
   renderTicker();
-  if (currentView === 'list') renderList(); else renderCalendar();
+  if (currentView === 'list') renderList();
+  else if (currentView === 'calendar') renderCalendar();
+  else renderHistory();
 }
 
 /* ============ REQUEST MODAL ============ */
