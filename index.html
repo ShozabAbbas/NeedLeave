@@ -420,6 +420,9 @@
   }
   .cal-day.other-month { opacity: 0.35; }
   .cal-day.today { border-color: var(--accent); }
+  .cal-day.weekend { background: #101319; }
+  .cal-day.weekend .cal-daynum { color: var(--text-faint); }
+  .cal-day.weekend .cal-chip { opacity: 0.45; }
   .cal-daynum { color: var(--text-dim); font-size: 11.5px; margin-bottom: 4px; }
   .cal-chip {
     font-size: 10px;
@@ -968,8 +971,10 @@ function renderCalendar() {
   }
 
   const dowHtml = DOWS.map(d => `<div class="cal-dow">${d}</div>`).join('');
-  const cellHtml = cells.map(c => {
-    if (c.otherMonth) return `<div class="cal-day other-month"><div class="cal-daynum">${c.day}</div></div>`;
+  const cellHtml = cells.map((c, idx) => {
+    const isWeekend = (idx % 7 === 0 || idx % 7 === 6);
+    const weekendClass = isWeekend ? ' weekend' : '';
+    if (c.otherMonth) return `<div class="cal-day other-month${weekendClass}"><div class="cal-daynum">${c.day}</div></div>`;
     const onLeave = filtered.filter(r => r.start_date <= c.iso && r.end_date >= c.iso);
     const isToday = c.iso === todayIso;
     const chips = onLeave.slice(0,3).map(r => {
@@ -981,7 +986,7 @@ function renderCalendar() {
       return `<div class="cal-chip" style="${faded}"><span class="cal-dot" style="background:${color}"></span><span style="${decoration}">${escapeHtml(name)}</span>${statusMark}</div>`;
     }).join('');
     const more = onLeave.length > 3 ? `<div class="cal-chip" style="color:var(--text-faint)">+${onLeave.length - 3} more</div>` : '';
-    return `<div class="cal-day ${isToday ? 'today' : ''}"><div class="cal-daynum">${c.day}</div>${chips}${more}</div>`;
+    return `<div class="cal-day ${isToday ? 'today' : ''}${weekendClass}"><div class="cal-daynum">${c.day}</div>${chips}${more}</div>`;
   }).join('');
 
   el.innerHTML = `
@@ -998,6 +1003,7 @@ function renderCalendar() {
       <span><s style="text-decoration-thickness:2px;">Name</s> = full day off</span>
       <span><span style="text-decoration: underline; text-decoration-thickness: 2px;">Name</span> = half day off</span>
       <span>? = pending &nbsp; ✕ = denied &nbsp; · &nbsp; color = person</span>
+      <span>Greyed columns = weekend (not counted toward leave totals)</span>
     </div>
   `;
 }
@@ -1030,8 +1036,20 @@ function daysForRequest(r) {
   const start = new Date(r.start_date + 'T00:00:00');
   const end = new Date(r.end_date + 'T00:00:00');
   const spanDays = Math.round((end - start) / 86400000) + 1;
-  if (spanDays === 1 && r.half_day) return 0.5;
-  return spanDays;
+  if (spanDays === 1) {
+    const isWeekend = start.getDay() === 0 || start.getDay() === 6;
+    if (isWeekend) return 0;
+    return r.half_day ? 0.5 : 1;
+  }
+  // Multi-day: count weekdays only (Sat/Sun don't count as leave taken)
+  let count = 0;
+  const cursor = new Date(start);
+  while (cursor <= end) {
+    const dow = cursor.getDay();
+    if (dow !== 0 && dow !== 6) count++;
+    cursor.setDate(cursor.getDate() + 1);
+  }
+  return count;
 }
 
 function formatDays(n) {
